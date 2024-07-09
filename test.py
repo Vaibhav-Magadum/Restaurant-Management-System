@@ -1,11 +1,11 @@
+import PySimpleGUI as sg
 import mysql.connector
-from getpass import getpass
 
 # Connect to MySQL
 db_connection = mysql.connector.connect(
     host="localhost",
-    user="", #INSERET YOUR USERNAME
-    password="", #INSERET YOUR PASSWORD
+    user="root",  # INSERT YOUR USERNAME
+    password="root",  # INSERT YOUR PASSWORD
     database="restaurant"
 )
 
@@ -13,64 +13,82 @@ cursor = db_connection.cursor()
 
 def register_customer():
     """Register a new customer."""
-    print("\n--- Customer Registration ---")
-    name = input("Enter your name: ")
-    contact = input("Enter your contact info: ")
-    email = input("Enter your email: ")
-    password = getpass("Enter your password: ")
-    
-    query = "INSERT INTO Customers (CustomerName, ContactInfo, Email, Password) VALUES (%s, %s, %s, %s)"
-    values = (name, contact, email, password)
-    
-    try:
-        cursor.execute(query, values)
-        db_connection.commit()
-        print("Registration successful!")
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        db_connection.rollback()
+    layout = [
+        [sg.Text("Enter your name:"), sg.InputText(key="name")],
+        [sg.Text("Enter your contact info:"), sg.InputText(key="contact")],
+        [sg.Text("Enter your email:"), sg.InputText(key="email")],
+        [sg.Text("Enter your password:"), sg.InputText(key="password", password_char='*')],
+        [sg.Button("Register"), sg.Button("Cancel")]
+    ]
+    window = sg.Window("Customer Registration", layout)
+    event, values = window.read()
+    window.close()
+
+    if event == "Register":
+        name = values["name"]
+        contact = values["contact"]
+        email = values["email"]
+        password = values["password"]
+
+        query = "INSERT INTO Customers (CustomerName, ContactInfo, Email, Password) VALUES (%s, %s, %s, %s)"
+        query_values = (name, contact, email, password)
+
+        try:
+            cursor.execute(query, query_values)
+            db_connection.commit()
+            sg.popup("Registration successful!")
+        except mysql.connector.Error as err:
+            sg.popup(f"Error: {err}")
+            db_connection.rollback()
 
 def login_customer():
     """Customer login."""
-    print("\n--- Customer Login ---")
-    email = input("Enter your email: ")
-    password = getpass("Enter your password: ")
-    
-    query = "SELECT CustomerID FROM Customers WHERE Email = %s AND Password = %s"
-    cursor.execute(query, (email, password))
-    result = cursor.fetchone()
-    
-    if result:
-        print("Login successful!")
-        return result[0]
-    else:
-        print("Invalid email or password.")
-        return None
+    layout = [
+        [sg.Text("Enter your email:"), sg.InputText(key="email")],
+        [sg.Text("Enter your password:"), sg.InputText(key="password", password_char='*')],
+        [sg.Button("Login"), sg.Button("Cancel")]
+    ]
+    window = sg.Window("Customer Login", layout)
+    event, values = window.read()
+    window.close()
+
+    if event == "Login":
+        email = values["email"]
+        password = values["password"]
+
+        query = "SELECT CustomerID FROM Customers WHERE Email = %s AND Password = %s"
+        cursor.execute(query, (email, password))
+        result = cursor.fetchone()
+
+        if result:
+            sg.popup("Login successful!")
+            return result[0]
+        else:
+            sg.popup("Invalid email or password.")
+            return None
 
 def display_menu():
     """Display the menu items."""
     query = "SELECT * FROM MenuItems"
     cursor.execute(query)
     results = cursor.fetchall()
-    print("\n--- Menu ---")
+    menu_text = "\n--- Menu ---\n"
     for row in results:
-        print(f"ID: {row[0]} | Name: {row[1]} | Description: {row[2]} | Price: ₹{row[3]} | Category: {row[4]}")
-    print("----------------")
+        menu_text += f"ID: {row[0]} | Name: {row[1]} | Description: {row[2]} | Price: ₹{row[3]} | Category: {row[4]}\n"
+    sg.popup("Menu", menu_text)
 
-def menu_item_details(item_id):
+def menu_item_details():
     """Display detailed information about a menu item."""
+    item_id = sg.popup_get_text("Enter the item ID to view details:")
     query = "SELECT * FROM MenuItems WHERE ItemID = %s"
     cursor.execute(query, (item_id,))
     result = cursor.fetchone()
     if result:
-        print(f"\n--- Details for Item {item_id} ---")
-        print(f"Name: {result[1]}")
-        print(f"Description: {result[2]}")
-        print(f"Price: ₹{result[3]}")
-        print(f"Category: {result[4]}")
-        print("-------------------------------")
+        details = f"\n--- Details for Item {item_id} ---\n"
+        details += f"Name: {result[1]}\nDescription: {result[2]}\nPrice: ₹{result[3]}\nCategory: {result[4]}\n"
+        sg.popup("Item Details", details)
     else:
-        print("Item not found.")
+        sg.popup("Item not found.")
 
 def place_order(customer_id):
     """Place an order."""
@@ -79,30 +97,43 @@ def place_order(customer_id):
 
     display_menu()
     while True:
-        item_id = input("Enter the item ID to add to cart (or 'done' to finish): ")
-        if item_id.lower() == 'done':
+        layout = [
+            [sg.Text("Enter Item ID:"), sg.InputText(key="item_id")],
+            [sg.Text("Enter Quantity:"), sg.InputText(key="quantity")],
+            [sg.Button("Add to Cart"), sg.Button("Done")]
+        ]
+        window = sg.Window("Add Item to Cart", layout)
+        event, values = window.read()
+        window.close()
+
+        if event == "Done":
             break
+
+        item_id = values["item_id"]
+        quantity = values["quantity"]
+
         try:
-            quantity = int(input("Enter the quantity: "))
+            quantity = int(quantity)
             cursor.execute("SELECT ItemName, Price FROM MenuItems WHERE ItemID = %s", (item_id,))
             item = cursor.fetchone()
             if item:
                 cart.append({'item_id': item_id, 'quantity': quantity, 'price': item[1], 'name': item[0]})
-                total_amount += float(str(item[1])) * float(str(quantity))
-                print(f"Added {quantity} of {item[0]} to cart.")
+                total_amount += float(item[1]) * float(quantity)
+                sg.popup(f"Added {quantity} of {item[0]} to cart.")
             else:
-                print("Invalid item ID.")
+                sg.popup("Invalid item ID.")
         except ValueError:
-            print("Invalid input. Please enter numeric values for quantity.")
+            sg.popup("Invalid input. Please enter numeric values for quantity.")
 
     if cart:
-        print("\n--- Cart ---")
+        cart_text = "\n--- Cart ---\n"
         for item in cart:
-            print(f"Item: {item['name']} | Quantity: {item['quantity']} | Price: ₹{item['price'] * item['quantity']}")
-        print(f"Total Amount: ₹{total_amount}")
+            cart_text += f"Item: {item['name']} | Quantity: {item['quantity']} | Price: ₹{item['price'] * item['quantity']}\n"
+        cart_text += f"Total Amount: ₹{total_amount}"
+        sg.popup("Cart", cart_text)
 
-        confirm = input("Do you want to place the order? (yes/no): ").lower()
-        if confirm == 'yes':
+        confirm = sg.popup_yes_no("Do you want to place the order?")
+        if confirm == 'Yes':
             order_query = "INSERT INTO Orders (CustomerID, OrderDate, TotalAmount) VALUES (%s, NOW(), %s)"
             order_values = (customer_id, total_amount)
             cursor.execute(order_query, order_values)
@@ -114,11 +145,11 @@ def place_order(customer_id):
                 cursor.execute(order_item_query, order_item_values)
 
             db_connection.commit()
-            print("Order placed successfully!")
+            sg.popup("Order placed successfully!")
         else:
-            print("Order cancelled.")
+            sg.popup("Order cancelled.")
     else:
-        print("No items in cart.")
+        sg.popup("No items in cart.")
 
 def view_order_history(customer_id):
     """View the customer's order history."""
@@ -132,18 +163,17 @@ def view_order_history(customer_id):
     """
     cursor.execute(query, (customer_id,))
     results = cursor.fetchall()
-    print("\n--- Order History ---")
+    history_text = "\n--- Order History ---\n"
     for row in results:
-        print(f"Order ID: {row[0]} | Date: {row[1]} | Total: ₹{row[2]} | Status: {row[3]} | Item: {row[4]} | Quantity: {row[5]}")
-    print("---------------------")
+        history_text += f"Order ID: {row[0]} | Date: {row[1]} | Total: ₹{row[2]} | Status: {row[3]} | Item: {row[4]} | Quantity: {row[5]}\n"
+    sg.popup("Order History", history_text)
 
 def update_profile(customer_id):
     """Update customer profile information."""
-    print("\n--- Update Profile ---")
-    name = input("Enter your new name (leave blank to keep current): ")
-    contact = input("Enter your new contact info (leave blank to keep current): ")
-    email = input("Enter your new email (leave blank to keep current): ")
-    password = getpass("Enter your new password (leave blank to keep current): ")
+    name = sg.popup_get_text("Enter your new name (leave blank to keep current):")
+    contact = sg.popup_get_text("Enter your new contact info (leave blank to keep current):")
+    email = sg.popup_get_text("Enter your new email (leave blank to keep current):")
+    password = sg.popup_get_text("Enter your new password (leave blank to keep current):", password_char='*')
 
     query = "SELECT CustomerName, ContactInfo, Email, Password FROM Customers WHERE CustomerID = %s"
     cursor.execute(query, (customer_id,))
@@ -158,73 +188,74 @@ def update_profile(customer_id):
     update_values = (name, contact, email, password, customer_id)
     cursor.execute(update_query, update_values)
     db_connection.commit()
-    print("Profile updated successfully.")
+    sg.popup("Profile updated successfully.")
 
 def search_menu():
     """Search for menu items by name or category."""
-    keyword = input("Enter a keyword to search for (name or category): ")
+    keyword = sg.popup_get_text("Enter a keyword to search for (name or category):")
     query = "SELECT * FROM MenuItems WHERE ItemName LIKE %s OR Category LIKE %s"
     like_pattern = f"%{keyword}%"
     cursor.execute(query, (like_pattern, like_pattern))
     results = cursor.fetchall()
 
     if results:
-        print("\n--- Search Results ---")
+        search_text = "\n--- Search Results ---\n"
         for row in results:
-            print(f"ID: {row[0]} | Name: {row[1]} | Description: {row[2]} | Price: ₹{row[3]} | Category: {row[4]}")
-        print("----------------------")
+            search_text += f"ID: {row[0]} | Name: {row[1]} | Description: {row[2]} | Price: ₹{row[3]} | Category: {row[4]}\n"
+        sg.popup("Search Results", search_text)
     else:
-        print("No items found matching the search criteria.")
+        sg.popup("No items found matching the search criteria.")
 
 def main():
-    
+    sg.theme("DarkBlue")
+
+    layout = [
+        [sg.Button("Register"), sg.Button("Login"), sg.Button("Exit")]
+    ]
+
+    window = sg.Window("Restaurant Management System", layout)
 
     while True:
-        print("\n--- Welcome to the Restaurant ---")
-        print("1. Register")
-        print("2. Login")
-        print("3. Exit")
-
-        choice = input("Enter your choice: ")
-        if choice == '1':
+        event, _ = window.read()
+        if event == sg.WINDOW_CLOSED or event == "Exit":
+            break
+        elif event == "Register":
             register_customer()
-        elif choice == '2':
+        elif event == "Login":
             customer_id = login_customer()
             if customer_id:
                 while True:
-                    print("\n--- Customer Menu ---")
-                    print("1. View Menu")
-                    print("2. View Item Details")
-                    print("3. Place Order")
-                    print("4. View Order History")
-                    print("5. Update Profile")
-                    print("6. Search Menu")
-                    print("7. Logout")
-                    
-                    customer_choice = input("Enter your choice: ")
-                    if customer_choice == '1':
-                        display_menu()
-                    elif customer_choice == '2':
-                        item_id = input("Enter the item ID to view details: ")
-                        menu_item_details(item_id)
-                    elif customer_choice == '3':
-                        place_order(customer_id)
-                    elif customer_choice == '4':
-                        view_order_history(customer_id)
-                    elif customer_choice == '5':
-                        update_profile(customer_id)
-                    elif customer_choice == '6':
-                        search_menu()
-                    elif customer_choice == '7':
-                        print("Logged out successfully.")
+                    layout = [
+                        [sg.Button("View Menu")],
+                        [sg.Button("View Item Details")],
+                        [sg.Button("Place Order")],
+                        [sg.Button("View Order History")],
+                        [sg.Button("Update Profile")],
+                        [sg.Button("Search Menu")],
+                        [sg.Button("Logout")]
+                    ]
+
+                    logged_in_window = sg.Window("Customer Menu", layout)
+
+                    event, _ = logged_in_window.read()
+                    logged_in_window.close()
+
+                    if event == sg.WINDOW_CLOSED or event == "Logout":
                         break
-                    else:
-                        print("Invalid choice. Please try again.")
-        elif choice == '3':
-            print("Thank you for visiting! Goodbye!")
-            break
-        else:
-            print("Invalid choice. Please try again.")
+                    elif event == "View Menu":
+                        display_menu()
+                    elif event == "View Item Details":
+                        menu_item_details()
+                    elif event == "Place Order":
+                        place_order(customer_id)
+                    elif event == "View Order History":
+                        view_order_history(customer_id)
+                    elif event == "Update Profile":
+                        update_profile(customer_id)
+                    elif event == "Search Menu":
+                        search_menu()
+
+    window.close()
 
 # Run the main function
 main()
