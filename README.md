@@ -36,5 +36,5 @@ The Restaurant Management System is a Python application that facilitates the ma
 - **Installation:** Provides steps to clone the repository, install dependencies, set up the MySQL database, and configure the application.
 - **Usage:** Explains how to run the application and details operations for customers, menus, orders, and logout.
 - **Contributing:** Encourages contributions through forking the repository and submitting pull requests.
-- **License:** States that the project is licensed under the MIT License, directing users to the `LICENSE` file for more information.
+  
 
