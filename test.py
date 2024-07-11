@@ -4,8 +4,8 @@ import mysql.connector
 # Connect to MySQL
 db_connection = mysql.connector.connect(
     host="localhost",
-    user="root",  # INSERT YOUR USERNAME
-    password="root",  # INSERT YOUR PASSWORD
+    user="",  # INSERT YOUR USERNAME
+    password="",  # INSERT YOUR PASSWORD
     database="restaurant"
 )
 
